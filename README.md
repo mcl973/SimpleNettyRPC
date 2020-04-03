@@ -3,6 +3,32 @@
       2.client再根据自己需要的来调用具体的函数。
       3.在处理中使用了enum创建的单例的线程池来处理具体的函数调用事件。
       4.事件处理完成后直接调用对应的channel将数据返回给client。
+      5.使用jdk的动态代理实现了rpc调用的线程安全性，代码如下：
+            @Compolent("ExampleImpl")
+            public class ExampleImpl implements Example {
+
+                @MethodRPC("test")
+                @Before("MyService.AopMethods.Before.BeforAop3")
+                @Override
+                public int test() {
+                    System.out.println("this is test");
+                    return 10;
+                }
+            }
+            public class BeforAop3 implements BaseInterface {
+                @Override
+                public Object Excute(Method method, Object object, Object[] objects) {
+                    return synchronizedMethod(method,object,objects);
+                }
+                public synchronized Object synchronizedMethod(Method method, Object object, Object[] objects){
+                    try {
+                        return method.invoke(object,objects);
+                    } catch (IllegalAccessException | InvocationTargetException e) {
+                        return null;
+                    }
+                }
+            }
+            运行时期通过原本的匹配方式，会执行到BeforAop3这个函数上，可以看见只是在骑上封装了一个线程安全的函数，使用synchronized修饰。
       
       其中线程池是有一个枚举类型写成的单例获得的：
       public enum ThreadExcutors {
