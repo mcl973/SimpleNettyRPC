@@ -54,7 +54,7 @@ public class ServiceHandler extends SimpleChannelInboundHandler<MethodInfos.MyMe
         //在这里处理具体的事务
         //使用线程池来解决netty 的channelread0的单线程问题
         MethodInfos.MethodInfo methodinfo = myMessage.getMethodinfo();
-        Future<?> submit = executorService.submit(new tack(methodinfo,channelHandlerContext.channel()));
+        executorService.execute(new tack(methodinfo,channelHandlerContext.channel()));
     }
 
     class tack implements Runnable{
