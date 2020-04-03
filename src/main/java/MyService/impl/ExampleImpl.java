@@ -23,7 +23,9 @@ import MyService.Interface.Example;
  */
 @Compolent("ExampleImpl")
 public class ExampleImpl implements Example {
+
     @MethodRPC("test")
+    @Before("MyService.AopMethods.Before.BeforAop3")
     @Override
     public int test() {
         System.out.println("this is test");
