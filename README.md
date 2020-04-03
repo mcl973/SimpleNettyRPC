@@ -39,8 +39,7 @@
              string value = 1;
         }
     使用protoc生成java代码：
-        protoc --proto_path=E:\java\Netty_RPC\src\main\java\protobuf --java_out=E:\java\Netty_RPC\src\main\java\ E:\java\Ne
-tty_RPC\src\main\java\protobuf\protobuf_Request
+        protoc --proto_path=E:\java\Netty_RPC\src\main\java\protobuf --java_out=E:\java\Netty_RPC\src\main\java\ E:\java\Netty_RPC\src\main\java\protobuf\protobuf_Request
 #
      ioc、aop、di的部分我就不讲了，着重的讲一下关于rpc函数的扫描：
      首先使用自定义注解@Compolent("ExampleImpl")，像这样来标注一个类，记得要传递类名
@@ -130,7 +129,7 @@ tty_RPC\src\main\java\protobuf\protobuf_Request
                       //在这里处理具体的事务
                       //使用线程池来解决netty 的channelread0的单线程问题
                       MethodInfos.MethodInfo methodinfo = myMessage.getMethodinfo();
-                      Future<?> submit = executorService.submit(new tack(methodinfo,channelHandlerContext.channel()));
+                      executorService.execute(new tack(methodinfo,channelHandlerContext.channel()));
                   }
 
                   class tack implements Runnable{
