@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package MethodMessage;
+
+//在使用protoc创建java文件时，需要注意的是参数和等于号不能有空格
+//如：protoc --proto_path=E:\java\Netty_RPC\src\main\java\protobuf --java_out=E:\java\Netty_RPC\src\main\java\MethodMessa
+//ge E:\java\Netty_RPC\src\main\java\protobuf\protobuf_Request
+//如果--proto_path和等于号之间有了空格那么降火 失败，报这个问题：
+//--proto_path passed empty directory name.  (Use "." for current directory.)
+
+option java_package = "MethodMessage";
+option java_outer_classname = "MethodInfos";
+
+message MyMessage{
+     enum MyMessageType {
+          MethodInfoType = 0;
+          responseType = 1;
+     }
+
+     MyMessageType mymessagetype = 1;
+     oneof messagetype{
+          MethodInfo  methodinfo = 2;
+          Response response = 3;
+     }
+}
+message MethodInfo {
+     string classname = 1;
+     string methodname = 2;
+     string methodReturnType = 3;
+     repeated ParagramesInfo paragrameinfo = 4;
+}
+message ParagramesInfo{
+     string paragrameName = 1;
+     string paragrameType = 2;
+     string paragramevalue = 3;
+}
+
+message Response{
+     string value = 1;
+}
