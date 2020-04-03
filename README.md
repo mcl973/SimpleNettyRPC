@@ -41,6 +41,7 @@
     使用protoc生成java代码：
         protoc --proto_path=E:\java\Netty_RPC\src\main\java\protobuf --java_out=E:\java\Netty_RPC\src\main\java\ E:\java\Ne
 tty_RPC\src\main\java\protobuf\protobuf_Request
+#
      ioc、aop、di的部分我就不讲了，着重的讲一下关于rpc函数的扫描：
      首先使用自定义注解@Compolent("ExampleImpl")，像这样来标注一个类，记得要传递类名
      其次使用自定义注解@MethodRPC("test")，来修饰要被远程调用的函数，记得要传递方法名
@@ -296,6 +297,8 @@ tty_RPC\src\main\java\protobuf\protobuf_Request
     
     
     效果：
-            https://github.com/mcl973/SimpleNettyRPC/blob/master/%E5%AE%A2%E6%88%B7%E7%AB%AFshow.png
+            !https://github.com/mcl973/SimpleNettyRPC/blob/master/%E5%AE%A2%E6%88%B7%E7%AB%AFshow.png
+            
+            !https://github.com/mcl973/SimpleNettyRPC/blob/master/%E6%9C%8D%E5%8A%A1%E7%AB%AFshw.png
             
         
