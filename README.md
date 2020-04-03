@@ -296,4 +296,6 @@ tty_RPC\src\main\java\protobuf\protobuf_Request
     
     
     效果：
+            https://github.com/mcl973/SimpleNettyRPC/blob/master/%E5%AE%A2%E6%88%B7%E7%AB%AFshow.png
+            
         
