@@ -9,8 +9,15 @@
  */
 package StartRun;
 
+import MethodMessage.MethodInfos;
+import MethodMessage.MethodInfoses;
 import NettyServer.Service;
 import ScannerAndInstance.Dispatch;
+import Serializable_Handler.Handler;
+import com.google.protobuf.ByteString;
+import io.netty.buffer.ByteBufUtil;
+
+import java.io.*;
 
 /**
  * 〈一句话功能简述〉<br> 
@@ -21,9 +28,14 @@ import ScannerAndInstance.Dispatch;
  * @since 1.0.0
  */
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         new Dispatch();
         Service service = new Service();
         service.start();
+        test t = new test("mcl",10);
+        Handler handler = new Handler();
+        MethodInfoses.ParagramesInfoes serializableParagrame = handler.getSerializableParagrame(t);
+        ByteString paragramevalue = serializableParagrame.getParagramevalue();
+        test object = (test)handler.getObject(paragramevalue);
     }
 }

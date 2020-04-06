@@ -9,6 +9,7 @@
  */
 package MyService.impl;
 
+import Annotation_Collection.Aop.Before;
 import Annotation_Collection.MethodRpc.MethodRPC;
 import Annotation_Collection.NormalBean.Compolent;
 import MyService.Interface.Example;
@@ -23,10 +24,14 @@ import MyService.Interface.Example;
  */
 @Compolent("ExampleImpl")
 public class ExampleImpl implements Example {
+
     @MethodRPC("test")
+    @Before("MyService.AopMethods.Before.BeforAop3")
     @Override
-    public int test() {
+    public int test(String name,int age) {
         System.out.println("this is test");
+        System.out.println(name+"   "+age);
         return 10;
     }
+
 }

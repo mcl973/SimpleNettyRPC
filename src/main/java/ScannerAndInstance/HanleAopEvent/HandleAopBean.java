@@ -8,14 +8,23 @@
  * <author>          <time>          <version>          <desc>
  */
 package ScannerAndInstance.HanleAopEvent;
+import Annotation_Collection.MethodRpc.MethodRPC;
 import Annotation_Collection.RouteMap.RouteMapping;
 import AutoJdk.JAutoAop;
 import AutoJdk.MyInvokeHandler;
+import MethodMessage.MethodInfos;
+import MethodMessage.MethodInfoses;
 import ScannerAndInstance.Instance.GetJieXi;
 import ScannerAndInstance.Instance.JieXiAnnotationInterface;
+import ScannerAndInstance.Instance.JiexiAnnotation.JieXiMethodRPC;
+import sun.management.MethodInfo;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -34,12 +43,23 @@ public class HandleAopBean extends AbstractHandleAopBean {
      */
     @Override
     void instanceaop() {
+        //存放rpc函数信息的容器
+        Map<String, MethodInfoses.MethodInfoes> map2 = new HashMap<>();
         Object value = null;
         for(Map.Entry<String,Object> map : iocmap.entrySet()){
             value = map.getValue();
             Class<?> aClass = value.getClass();
             //查看这个类的方法里是否包含了注解，如果包含了，那么就返回其值
             String result = isHasAopAnnotation(value.getClass().getMethods());
+            ArrayList<Method> list = new ArrayList<>();
+            //判断与没有需要被rpc的函数
+            Method[] declaredMethods = aClass.getDeclaredMethods();
+            for (Method declaredMethod : declaredMethods) {
+                if(declaredMethod.isAnnotationPresent(MethodRPC.class)){
+                    list.add(declaredMethod);
+                }
+            }
+
             //这一步很重要，如果没有这一步，候命是没有办法实现自动注入的，
             //所以需要在创建动态代理之前先将数据注入进去
             if (result!=null) {
@@ -63,8 +83,16 @@ public class HandleAopBean extends AbstractHandleAopBean {
                 MyInvokeHandler myInvokeHandler = new MyInvokeHandler(value);
                 Object newInstance = JAutoAop.createNewInstance(value, myInvokeHandler);
                 map.setValue(newInstance);
+                for (Method method : list) {
+                    getmethodinfo(map.getKey(),method,map2);
+                }
             }
         }
+        //对于需要被aop的rpc函数，需要先一步的添加
+        for(Map.Entry<String, MethodInfoses.MethodInfoes> maps:map2.entrySet()){
+            methodInfoMap.put(maps.getKey(),maps.getValue());
+        }
+        map2 = null;
     }
 
     //是否包含了需要被动态代理的注解
@@ -91,5 +119,25 @@ public class HandleAopBean extends AbstractHandleAopBean {
             return jieXi.JiexiAnnotation(field);
         return null;
     }
-
+    public void getmethodinfo(String classname, Method declaredMethod, Map<String, MethodInfoses.MethodInfoes> method_Object){
+        Parameter[] parameters = declaredMethod.getParameters();
+        /*
+            1.获取classname
+            2.获取method的hashcode
+            3.获取参数名和类型
+         */
+        MethodInfoses.MethodInfoes.Builder builder = MethodInfoses.MethodInfoes.newBuilder()
+                .setClassname(classname)
+                .setMethodhashcode(declaredMethod.hashCode());
+        for (Parameter parameter : parameters) {
+            MethodInfoses.paragrameTypeAndName paragrameTypeAndName = MethodInfoses.paragrameTypeAndName
+                    .newBuilder().setParagrameName(parameter.getName())
+                    .setParagrameType(parameter.getType().toString()).build();
+            MethodInfoses.ParagramesInfoes paragramesInfoes = MethodInfoses.ParagramesInfoes.newBuilder()
+                    .setPtn(paragrameTypeAndName).build();
+            builder.addParagrameinfo(paragramesInfoes);
+        }
+        //        //装入map中
+        method_Object.put(declaredMethod.getName(), builder.build());
+    }
 }

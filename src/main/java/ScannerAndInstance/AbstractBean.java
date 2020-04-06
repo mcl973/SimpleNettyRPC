@@ -8,6 +8,7 @@ package ScannerAndInstance; /**
  * <author>          <time>          <version>          <desc>
  */
 import MethodMessage.MethodInfos;
+import MethodMessage.MethodInfoses;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,7 +27,7 @@ public abstract class AbstractBean {
     //ioc容器
     public static Map<String,Object> iocmap = new HashMap<>();
     //mehtod的map容器
-    public static Map<String, MethodInfos.MethodInfo> methodInfoMap = new HashMap<>();
+    public static Map<String, MethodInfoses.MethodInfoes> methodInfoMap = new HashMap<>();
     //用来存放filename的地方
     public static List<String> filesname = new ArrayList<>();
     public static Object getiocmap_Value(String key){

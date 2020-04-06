@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package MethodMessage;
+option java_package = "MethodMessage";
+option java_outer_classname = "MethodInfoses";
+
+message MyMessages{
+     enum MyMessageType {
+          MethodInfoType = 0;
+          responseType = 1;
+     }
+     MyMessageType mymessagetype = 1;
+
+     oneof messagetype{
+          MethodInfoes  methodinfo = 2;
+          Responses response = 3;
+     }
+}
+message MethodInfoes {
+     string classname = 1;
+     int32 methodhashcode = 2;
+     repeated ParagramesInfoes paragrameinfo = 3;
+}
+message ParagramesInfoes{
+     paragrameTypeAndName ptn = 1;
+     bytes paragramevalue = 2;
+}
+message paragrameTypeAndName{
+    string paragrameName = 1;
+    string paragrameType = 2;
+}
+message Responses{
+     bytes responsevalue = 1;
+}

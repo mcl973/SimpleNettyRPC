@@ -10,6 +10,8 @@
 package NettyClient;
 
 import MethodMessage.MethodInfos;
+import MethodMessage.MethodInfoses;
+import Serializable_Handler.Handler;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -20,6 +22,7 @@ import io.netty.handler.codec.protobuf.ProtobufEncoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 
+import java.lang.reflect.Field;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -34,7 +37,7 @@ import java.util.HashSet;
  * @since 1.0.0
  */
 public class RPC_NettyClient {
-    static Set<MethodInfos.MethodInfo> set = new HashSet<>();
+    static Set< MethodInfoses.MethodInfoes> set = new HashSet<>();
     public static void main(String[] args) {
 //        Set<MethodInfos.MethodInfo> set = new HashSet<>();
         EventLoopGroup boss = new NioEventLoopGroup();
@@ -50,23 +53,36 @@ public class RPC_NettyClient {
                 pipeline.addLast(new ProtobufVarint32FrameDecoder());
                 pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());
 
-                pipeline.addLast(new SimpleChannelInboundHandler<MethodInfos.MyMessage>() {
+                pipeline.addLast(new SimpleChannelInboundHandler<MethodInfoses.MyMessages>() {
+
                     @Override
-                    protected void channelRead0(ChannelHandlerContext channelHandlerContext, MethodInfos.MyMessage myMessage) throws Exception {
-//                        Channel channel = channelHandlerContext.channel();
-                        MethodInfos.MethodInfo methodinfo = myMessage.getMethodinfo();
+                    protected void channelRead0(ChannelHandlerContext channelHandlerContext, MethodInfoses.MyMessages myMessages) throws Exception {
+                        System.out.println("//////////////");
+                        Handler handler = new Handler();
+                        MethodInfoses.MethodInfoes methodinfo = myMessages.getMethodinfo();
                         set.add(methodinfo);
-                        MethodInfos.Response response = myMessage.getResponse();
+                        MethodInfoses.Responses response = myMessages.getResponse();
                         StringBuilder stringBuilder = new StringBuilder();
                         stringBuilder.append(methodinfo.getClassname());
-                        stringBuilder.append(methodinfo.getMethodname());
-                        List<MethodInfos.ParagramesInfo> paragrameinfoList = methodinfo.getParagrameinfoList();
-                        for (MethodInfos.ParagramesInfo paragramesInfo : paragrameinfoList) {
-                            stringBuilder.append(paragramesInfo.getParagrameName());
-                            stringBuilder.append(paragramesInfo.getParagrameType());
-                            stringBuilder.append(paragramesInfo.getParagramevalue());
+                        stringBuilder.append(methodinfo.getMethodhashcode());
+                        List<MethodInfoses.ParagramesInfoes> paragrameinfoList = methodinfo.getParagrameinfoList();
+                        //首先通过
+                        for (MethodInfoses.ParagramesInfoes paragramesInfo : paragrameinfoList) {
+                            Object object = handler.getObject(paragramesInfo.getParagramevalue());
+                            Class<?> aClass = object.getClass();
+                            Field[] declaredFields = aClass.getDeclaredFields();
+                            for (Field declaredField : declaredFields) {
+                                declaredField.setAccessible(true);
+                                stringBuilder.append(declaredField.get(object));
+                            }
                         }
-                        stringBuilder.append(response.getValue());
+                        Object object = handler.getObject(response.getResponsevalue());
+                        Class<?> aClass = object.getClass();
+                        Field[] declaredFields = aClass.getDeclaredFields();
+                        for (Field declaredField : declaredFields) {
+                            declaredField.setAccessible(true);
+                            stringBuilder.append(declaredField.get(object));
+                        }
                         System.out.println(stringBuilder.toString());
                     }
                 });
@@ -90,20 +106,25 @@ public class RPC_NettyClient {
     }
     static class test extends Thread{
         Channel channel;
+        Handler handler = new Handler();
         public test(Channel channel){
             this.channel = channel;
         }
         @Override
         public void run() {
             boolean kk = true;
+
             while(kk) {
-                Iterator<MethodInfos.MethodInfo> iterator = set.iterator();
+                Iterator<MethodInfoses.MethodInfoes> iterator = set.iterator();
                 if (set.size()>0) {
                     while (iterator.hasNext()) {
-                        MethodInfos.MethodInfo next = iterator.next();
+                        MethodInfoses.MethodInfoes next = iterator.next();
+
+
                         if (next != null) {
-                            MethodInfos.MyMessage message = MethodInfos.MyMessage.newBuilder().setMethodinfo(next).build();
-                            channel.writeAndFlush(message);
+                            Object[] object = {"mcl",10};
+                            MethodInfoses.MethodInfoes excute = excute(next, object);
+                            channel.writeAndFlush(excute);
                             kk = false;
                         }
                     }
@@ -115,6 +136,17 @@ public class RPC_NettyClient {
                     }
                 }
             }
+        }
+
+        public MethodInfoses.MethodInfoes excute( MethodInfoses.MethodInfoes next,Object[] args){
+            MethodInfoses.MethodInfoes.Builder builder = MethodInfoses.MethodInfoes.newBuilder()
+                    .setClassname(next.getClassname())
+                    .setMethodhashcode(next.getMethodhashcode());
+            List<MethodInfoses.ParagramesInfoes> paragrameinfoList = next.getParagrameinfoList();
+            for (Object arg : args) {
+                builder.addParagrameinfo(handler.getSerializableParagrame(arg));
+            }
+            return builder.build();
         }
     }
 }
