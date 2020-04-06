@@ -9,11 +9,8 @@
  */
 package Serializable_Handler;
 
-import MethodMessage.MethodInfos;
 import MethodMessage.MethodInfoses;
-import StartRun.test;
 import com.google.protobuf.ByteString;
-
 import java.io.*;
 
 /**
@@ -55,14 +52,50 @@ public class Handler {
 
     public Object getObject(ByteString byteString){
         Object object = null;
-        byte[] bytes = byteString.toByteArray();
-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
-        try {
-            ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
-            object = objectInputStream.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
+        if (byteString.size() != 0) {
+            byte[] bytes = byteString.toByteArray();
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
+            try {
+                ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
+                object = objectInputStream.readObject();
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
         }
         return object;
+    }
+    /*
+        import java.lang.Integer;
+        import java.lang.Double;
+        import java.lang.Float;
+        import java.lang.Long;
+        import java.lang.Boolean;
+        import java.lang.Byte;
+        import java.lang.Character;
+        import java.lang.Short;
+        import java.lang.String;
+     */
+    public Object getreturnType(String typename,Object value){
+        switch (typename){
+            case "java.lang.Integer":
+                return (int)value;
+            case "import java.lang.Double":
+                return (double)value;
+            case "java.lang.Float":
+                return (float)value;
+            case "java.lang.Long":
+                return (long)value;
+            case "java.lang.Boolean":
+                return (boolean)value;
+            case "java.lang.Byte":
+                return (byte)value;
+            case "java.lang.Character":
+                return (char)value;
+            case "java.lang.Short":
+                return (short)value;
+            case "java.lang.String":
+                return (String)value;
+            default:return null;
+        }
     }
 }

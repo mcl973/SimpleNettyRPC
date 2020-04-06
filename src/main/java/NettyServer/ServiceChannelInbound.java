@@ -9,8 +9,7 @@
  */
 package NettyServer;
 
-import MethodMessage.MethodInfos;
-import io.netty.channel.Channel;
+import MethodMessage.MethodInfoses;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
@@ -31,7 +30,7 @@ public class ServiceChannelInbound extends ChannelInitializer<SocketChannel> {
     @Override
     protected void initChannel(SocketChannel socketChannel) throws Exception {
         ChannelPipeline pipeline = socketChannel.pipeline();
-        pipeline.addLast(new ProtobufDecoder(MethodInfos.MyMessage.getDefaultInstance()));
+        pipeline.addLast(new ProtobufDecoder(MethodInfoses.MyMessages.getDefaultInstance()));
         pipeline.addLast(new ProtobufEncoder());
         pipeline.addLast(new ProtobufVarint32FrameDecoder());
         pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());

@@ -13,6 +13,7 @@ import Annotation_Collection.Aop.Before;
 import Annotation_Collection.MethodRpc.MethodRPC;
 import Annotation_Collection.NormalBean.Compolent;
 import MyService.Interface.Example;
+import StartRun.test;
 
 /**
  * 〈一句话功能简述〉<br> 
@@ -28,10 +29,15 @@ public class ExampleImpl implements Example {
     @MethodRPC("test")
     @Before("MyService.AopMethods.Before.BeforAop3")
     @Override
-    public int test(String name,int age) {
+    public test test(String name,int age) {
         System.out.println("this is test");
         System.out.println(name+"   "+age);
-        return 10;
+        test t = new test("mcl",26);
+        return t;
     }
-
+    @MethodRPC("getresult")
+    @Override
+    public long getresult() {
+        return 1000L;
+    }
 }

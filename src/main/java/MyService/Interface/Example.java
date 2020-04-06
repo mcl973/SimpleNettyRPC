@@ -1,5 +1,8 @@
 package MyService.Interface;
 
+import StartRun.test;
+
 public interface Example {
-    public int  test(String name,int age);
+    public test test(String name, int age);
+    public long getresult();
 }

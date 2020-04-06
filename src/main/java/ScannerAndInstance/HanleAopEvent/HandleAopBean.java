@@ -12,19 +12,15 @@ import Annotation_Collection.MethodRpc.MethodRPC;
 import Annotation_Collection.RouteMap.RouteMapping;
 import AutoJdk.JAutoAop;
 import AutoJdk.MyInvokeHandler;
-import MethodMessage.MethodInfos;
 import MethodMessage.MethodInfoses;
 import ScannerAndInstance.Instance.GetJieXi;
 import ScannerAndInstance.Instance.JieXiAnnotationInterface;
-import ScannerAndInstance.Instance.JiexiAnnotation.JieXiMethodRPC;
-import sun.management.MethodInfo;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -82,9 +78,16 @@ public class HandleAopBean extends AbstractHandleAopBean {
                 //注入必须要在代理前，代理后的类不会有代理前的属性
                 MyInvokeHandler myInvokeHandler = new MyInvokeHandler(value);
                 Object newInstance = JAutoAop.createNewInstance(value, myInvokeHandler);
+
                 map.setValue(newInstance);
+                Class<?> aClass1 = newInstance.getClass();
                 for (Method method : list) {
-                    getmethodinfo(map.getKey(),method,map2);
+                    try {
+                        Method declaredMethod = aClass1.getDeclaredMethod(method.getName(), method.getParameterTypes());
+                        getmethodinfo(map.getKey(),declaredMethod,map2);
+                    } catch (NoSuchMethodException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }

@@ -61,7 +61,7 @@ public class MyInvokeHandler extends MyHandler implements InvocationHandler {
             for (int i = 0; i < parameters.length; i++) {
                 if (args[i] != null) {
                     //如果其类型为String则判断其值是不是为空
-                    if (!((String) args[i]).equals("")) {
+                    if (!(args[i].toString()).equals("")) {
                         paras[i] = args[i];
                     } else if (hasMethodParagrame.containsKey(parameters[i].getName()))//查看这个参数有没有注解
                         paras[i] = hasMethodParagrame.get(parameters[i].getName());

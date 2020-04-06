@@ -9,13 +9,11 @@
  */
 package StartRun;
 
-import MethodMessage.MethodInfos;
 import MethodMessage.MethodInfoses;
 import NettyServer.Service;
 import ScannerAndInstance.Dispatch;
 import Serializable_Handler.Handler;
 import com.google.protobuf.ByteString;
-import io.netty.buffer.ByteBufUtil;
 
 import java.io.*;
 
@@ -32,10 +30,5 @@ public class Main {
         new Dispatch();
         Service service = new Service();
         service.start();
-        test t = new test("mcl",10);
-        Handler handler = new Handler();
-        MethodInfoses.ParagramesInfoes serializableParagrame = handler.getSerializableParagrame(t);
-        ByteString paragramevalue = serializableParagrame.getParagramevalue();
-        test object = (test)handler.getObject(paragramevalue);
     }
 }

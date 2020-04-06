@@ -7,7 +7,7 @@ package ScannerAndInstance; /**
  * History:
  * <author>          <time>          <version>          <desc>
  */
-import MethodMessage.MethodInfos;
+
 import MethodMessage.MethodInfoses;
 
 import java.util.ArrayList;
