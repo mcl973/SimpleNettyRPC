@@ -1,4 +1,6 @@
 # SimpleNettyRPC
+      详细介绍：
+            https://blog.csdn.net/qq_30761967/article/details/105361477
       更新：可以调用任意方法，在protobuf方法中添加了byte属性，使得函数中才能够可以表示object类型的变量。
       用之前的函数名+参数类型的匹配可以确定一个函数，替代为适应hashcode来匹配唯一的函数。
             修改的protobuf如下：
