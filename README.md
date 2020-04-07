@@ -1,4 +1,147 @@
 # SimpleNettyRPC
+      更新：可以调用任意方法，在protobuf方法中添加了byte属性，使得函数中才能够可以表示object类型的变量。
+      用之前的函数名+参数类型的匹配可以确定一个函数，替代为适应hashcode来匹配唯一的函数。
+            修改的protobuf如下：
+            protobuf_Requests：
+                  syntax = "proto3";
+                  package MethodMessage;
+                  option java_package = "MethodMessage";
+                  option java_outer_classname = "MethodInfoses";
+
+                  message MyMessages{
+                       enum MyMessageType {
+                            MethodInfoType = 0;
+                            responseType = 1;
+                       }
+                       MyMessageType mymessagetype = 1;
+
+                       oneof messagetype{
+                            MethodInfoes  methodinfo = 2;
+                            Responses response = 3;
+                       }
+                  }
+                  message MethodInfoes {
+                       string classname = 1;
+                       int32 methodhashcode = 2;
+                       repeated ParagramesInfoes paragrameinfo = 3;
+                  }
+                  message ParagramesInfoes{
+                       paragrameTypeAndName ptn = 1;
+                       bytes paragramevalue = 2;
+                  }
+                  message paragrameTypeAndName{
+                      string paragrameName = 1;
+                      string paragrameType = 2;
+                  }
+                  message Responses{
+                       bytes responsevalue = 1;
+                  }
+            在客户端简单的测试了下功能，可以实现正常的调用，并且可以返回数据。
+                   class test extends Thread{
+                          Channel channel;
+                          Handler handler = new Handler();
+                          public test(Channel channel){
+                              this.channel = channel;
+                          }
+                          @Override
+                          public void run() {
+                              boolean kk = true;
+
+                              while(kk) {
+                                    //遍历远程函数调用的列表，这里可以是set而不是map
+                                  for(Map.Entry<MethodInfoses.MethodInfoes,Object> nexts:set.entrySet()){
+                                          MethodInfoses.MethodInfoes next = nexts.getKey();
+                                          if(next.getParagrameinfoCount() == 0) {
+                                              if (next != null) {
+                                                  Object[] object = new Object[next.getParagrameinfoCount()];
+                                                  //这里根据具体的函数来填写相应的参数，这个需要人工参与，应为参数不可能
+                                                  //由程序帮你填写。
+                                                  //我这里调用的是一个无参的函数。
+                  //                                object[0] = "mcl";
+                  //                                object[1] = 10;
+                                                  //得到序列化后的 MethodInfoes   
+                                                  MethodInfoses.MethodInfoes excute = excute(next, object); 
+                                                  //将其封装为MyMessages格式
+                                                  MethodInfoses.MyMessages build = MethodInfoses.MyMessages.newBuilder().setMethodinfo(excute).build();
+                                                  //发送
+                                                  channel.writeAndFlush(build);
+                                                  kk = false;
+                                              }
+                                          }
+                                  }
+                                  try {
+                                      Thread.sleep(1);
+                                  } catch (InterruptedException e) {
+                                      e.printStackTrace();
+                                  }
+
+                              }
+                          }
+       client短的对于object类型的返回值的处理：
+       //获取函数执行返回的值
+                Object object = handler.getObject(response.getResponsevalue());
+                if (object != null) {
+                    Class<?> aClass = object.getClass();
+                    String typeName = aClass.getTypeName();
+                    //判断是不是八大基本类型+String
+                    Object o = handler.getreturnType(typeName, object);
+                    if (o == null) {//不是八大基本类型和String类型
+                        //一般情况下都是pojo类型的，如果是需要调用object里的参数的话，可以使用method的invoke来调用。
+                        //获取所有的属性
+                        Field[] declaredFields = aClass.getDeclaredFields();
+                        for (Field declaredField : declaredFields) {
+                            //通过反射获取值
+                            declaredField.setAccessible(true);
+                            try {
+                                stringBuilder.append(declaredField.getName() + " " + declaredField.get(object));
+                            } catch (IllegalAccessException e) {
+                                e.printStackTrace();
+                            }
+                            stringBuilder.append("\n");
+                        }
+                    } else {//直接输出结果
+                        System.out.println(object);
+                    }
+                }
+                System.out.println(stringBuilder.toString());
+         对于服务器端的处理object的做法是：
+         Handler handler = new Handler();
+            if(method != null){
+                //获取参数，获取传递过来的参数值
+                int count = methodInfo.getParagrameinfoCount();
+                Object[] objects = new Object[count];
+                for(int i=0;i<count;i++){
+                    //这里需要做一个操作，就是将byte【】类型的转成object的。
+                    MethodInfoses.ParagramesInfoes paragrameinfo = methodInfo.getParagrameinfo(i);
+                    ByteString byteString = paragrameinfo.getParagramevalue();
+                    Object object = handler.getObject(byteString);
+                    //由于是参数类型，在执行method.invoke的时候传进去的都是obejct[]所以在这里根本不需要判断器类型，由java本身去做判断
+                    //public Object invoke(Object obj, Object... args)，所以这里直接将obejct赋值给obejct[i]
+                    objects[i] =object;
+                }
+                try {
+                    //执行方法
+                    Object object = method.invoke(o,objects);
+                    //首先将结果序列化
+                    MethodInfoses.Responses serializableResponse = handler.getSerializableResponse(object);
+                    //将返回值传递给response,在封装成mymessage
+                    MethodInfoses.MyMessages message = MethodInfoses.MyMessages.newBuilder()
+                            .setResponse(serializableResponse).build();
+                    //将mymessage传递给远程。
+                    channel.writeAndFlush(message);
+                } catch (IllegalAccessException | InvocationTargetException e) {
+                    e.printStackTrace();
+                }
+            }
+                          
+      下一步的设想，应该将这个项目结构拆分的更加细化，如封装、序列化反序列化、io、处理事件（发送事件和接收事件）、ioc、di、aop、rpcmethodmapped。
+      进一步的思想是，提供函数列表名和对应的hashcode，由用户自定义的去传递参数。
+            还需要有一个专门的注册中心，目前的注册中心是有服务器端来扮演的，如client端一注册，服务器端就像其发送自己的可以被远程调用的函数封装。
+            目前只有一个服务器，所以网关不需要，所以负载均衡自然也是不需要的。反向代理更不用说。
+      
+      
+     
+      
       1.在netty的server端，当client刚注册时就将本地的所有的rpc方法发送给client。
       2.client再根据自己需要的来调用具体的函数。
       3.在处理中使用了enum创建的单例的线程池来处理具体的函数调用事件。
@@ -45,307 +188,244 @@
             }
         }
         所以他是安全的。
-        
-        貌似函数的处理还没有对于线程安全的处理。
-        后续会针对方法做一个aop，正对于aop来处理这个事件。
-      **由于对protobuf还处于一个比较简陋的了解，还不知道如何处理Object对象和Object[]对象，但是我觉的是不是可以将Object和Object[]序列化，然后装载到
-      protobuf中，这样就可以解决参数中含有非基本变量和String类型的情况。
-      ***所以目前只能处理返回时 是基本类型或string，参数是基本类型或是String。
       
      一个基于netty和我之前的写的后台框架中的ioc、di、aop以及后添加的rpc方法扫描模块
       https://github.com/mcl973/-web-Dao-Service-Controller-  这个就是之前的简单的后台框架
     
-    首先创建了一个protobuf：
-        syntax = "proto3";
-
-        package MethodMessage;
-        option java_package = "MethodMessage";
-        option java_outer_classname = "MethodInfos";
-
-        message MyMessage{
-             enum MyMessageType {
-                  MethodInfoType = 0;
-                  responseType = 1;
-             }
-
-             MyMessageType mymessagetype = 1;
-             //只能传递下面中的一个
-             oneof messagetype{
-                  MethodInfo  methodinfo = 2;
-                  Response response = 3;
-             }
-        }
-        message MethodInfo {
-             string classname = 1;
-             string methodname = 2;
-             string methodReturnType = 3;
-             //起到类似于列表的作用
-             repeated ParagramesInfo paragrameinfo = 4;
-        }
-        message ParagramesInfo{
-             string paragrameName = 1;
-             string paragrameType = 2;
-             string paragramevalue = 3;
-        }
-
-        message Response{
-             string value = 1;
-        }
+  
     使用protoc生成java代码：
-        protoc --proto_path=E:\java\Netty_RPC\src\main\java\protobuf --java_out=E:\java\Netty_RPC\src\main\java\ E:\java\Netty_RPC\src\main\java\protobuf\protobuf_Request
-#
-     ioc、aop、di的部分我就不讲了，着重的讲一下关于rpc函数的扫描：
-     首先使用自定义注解@Compolent("ExampleImpl")，像这样来标注一个类，记得要传递类名
-     其次使用自定义注解@MethodRPC("test")，来修饰要被远程调用的函数，记得要传递方法名
-     下面来看一下rpc的扫描部分：在ScannerAndInstance.HandleRPCMappEvent.HandleRPCMapping.java这里
-          public class HandleRPCMapping extends AbstractHandleRPCmapping {
-              @Override
-              void instanceRoutemapping() {
-                  Map<String, MethodInfos.MethodInfo> method_Object = new HashMap<>();
+        protoc --proto_path=E:\java\Netty_RPC\src\main\java\protobuf --java_out=E:\java\Netty_RPC\src\main\java\ E:\java\Netty_RPC\src\main\java\protobuf\protobuf_Requests
+     贴上客户端的代码：
+      public class RPC_NettyClient {
+          static ConcurrentHashMap<MethodInfoses.MethodInfoes,Object> set = new ConcurrentHashMap<>();
+          private final Object lock = new Object();
+          public RPC_NettyClient(){
+              EventLoopGroup boss = new NioEventLoopGroup();
+              Bootstrap bootstrap = new Bootstrap();
+              bootstrap.group(boss).channel(NioSocketChannel.class).handler(new ChannelInitializer<SocketChannel>() {
+                  @Override
+                  protected void initChannel(SocketChannel socketChannel) throws Exception {
+                      ChannelPipeline pipeline = socketChannel.pipeline();
+                      //protobuf解码
+                      pipeline.addLast(new ProtobufDecoder(MethodInfoses.MyMessages.getDefaultInstance()));
+                      //protobuf编码
+                      pipeline.addLast(new ProtobufEncoder());
+                      pipeline.addLast(new ProtobufVarint32FrameDecoder());
+                      pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());
 
-                  for(Map.Entry<String ,Object> map:iocmap.entrySet()){
-                      Object value = map.getValue();
-                      Class<?> aClass = value.getClass();
-                      Method[] declaredMethods = aClass.getDeclaredMethods();
-                      for (Method declaredMethod : declaredMethods) {
-                          if (declaredMethod.isAnnotationPresent(MethodRPC.class)) {
-                              //将这个函数的信息封装成protobuf类型的格式
-                              JieXiMethodRPC jieXiMethodRPC = new JieXiMethodRPC();
-                              //先获取方法上的名字
-                              String s = jieXiMethodRPC.JiexiAnnotation(declaredMethod);
-                              MethodInfos.ParagramesInfo.Builder builder = MethodInfos.ParagramesInfo.newBuilder();
-                              Parameter[] parameters = declaredMethod.getParameters();
-                              MethodInfos.ParagramesInfo build1 = null;
-                              if(parameters.length>0) {
-                                  //获取参数
-                                  for (Parameter parameter : parameters) {
-                                      builder.setParagrameName(parameter.getName());
-                                      builder.setParagrameType(parameter.getType().toString());
+                      pipeline.addLast(new SimpleChannelInboundHandler<MethodInfoses.MyMessages>() {
+
+                          @Override
+                          protected void channelRead0(ChannelHandlerContext channelHandlerContext, MethodInfoses.MyMessages myMessages) throws Exception {
+                              new clientExecuteThread(myMessages).start();
+                              System.out.println("/////////");
+                          }
+                      });
+                  }
+              });
+              try {
+                  ChannelFuture channelFuture = bootstrap.connect("127.0.0.1", 8899).sync();
+                  Channel channel = channelFuture.channel();
+                  //简单的测试一下，看看可不可以有返回值。
+                  test test = new test(channel);
+                  test.start();
+                  channel.closeFuture().sync();
+              } catch (InterruptedException e) {
+                  e.printStackTrace();
+              }finally {
+                  boss.shutdownGracefully();
+              }
+          }
+          class test extends Thread{
+              Channel channel;
+              Handler handler = new Handler();
+              public test(Channel channel){
+                  this.channel = channel;
+              }
+              @Override
+              public void run() {
+                  boolean kk = true;
+
+                  while(kk) {
+                      for(Map.Entry<MethodInfoses.MethodInfoes,Object> nexts:set.entrySet()){
+                              MethodInfoses.MethodInfoes next = nexts.getKey();
+                              if(next.getParagrameinfoCount() == 0) {
+                                  if (next != null) {
+                                      Object[] object = new Object[next.getParagrameinfoCount()];
+      //                                object[0] = "mcl";
+      //                                object[1] = 10;
+                                      MethodInfoses.MethodInfoes excute = excute(next, object);
+                                      MethodInfoses.MyMessages build = MethodInfoses.MyMessages.newBuilder().setMethodinfo(excute).build();
+                                      channel.writeAndFlush(build);
+                                      kk = false;
                                   }
-                                  build1 = builder.build();
-                                  //构建methidonfo
                               }
-                              MethodInfos.MethodInfo build = null;
-                              if(build1!=null) {
-                                  build = MethodInfos.MethodInfo.newBuilder()
-                                          //到时可以使用这个快速的调取iocmap中具体的对象实例
-                                          .setClassname(map.getKey())
-                                          .setMethodname(s)
-                                          .setMethodReturnType(declaredMethod.getReturnType().toString())
-                                          .addParagrameinfo(build1).build();
-                              }else{
-                                  build = MethodInfos.MethodInfo.newBuilder()
-                                          //到时可以使用这个快速的调取iocmap中具体的对象实例
-                                          .setClassname(map.getKey())
-                                          .setMethodname(s)
-                                          .setMethodReturnType(declaredMethod.getReturnType().toString()).build();
+                      }
+                      try {
+                          Thread.sleep(1);
+                      } catch (InterruptedException e) {
+                          e.printStackTrace();
+                      }
+
+                  }
+              }
+              //执行包装具体的mymessage
+              public MethodInfoses.MethodInfoes excute( MethodInfoses.MethodInfoes next,Object[] args){
+                  MethodInfoses.MethodInfoes.Builder builder = MethodInfoses.MethodInfoes.newBuilder()
+                          .setClassname(next.getClassname())
+                          .setMethodhashcode(next.getMethodhashcode());
+                  //填充参数值
+                  for (Object arg : args) {
+                      builder.addParagrameinfo(handler.getSerializableParagrame(arg));
+                  }
+                  return builder.build();
+              }
+          }
+          //处理 接收到的数据
+          //包括接收服务端推送的数据
+          //和解析函数调用返回的结果
+          class clientExecuteThread extends Thread{
+              MethodInfoses.MyMessages myMessages;
+              public clientExecuteThread(MethodInfoses.MyMessages myMessages){
+                  this.myMessages = myMessages;
+              }
+              @Override
+              public void run() {
+                  synchronized (lock) {
+                      System.out.println("//////////////");
+                      Handler handler = new Handler();
+                      MethodInfoses.MethodInfoes methodinfo = myMessages.getMethodinfo();
+                      assert methodinfo != null;
+                      set.put(methodinfo,new Object());
+                      MethodInfoses.Responses response = myMessages.getResponse();
+                      StringBuilder stringBuilder = new StringBuilder();
+                      stringBuilder.append(methodinfo.getClassname());
+                      stringBuilder.append("\n");
+                      stringBuilder.append(methodinfo.getMethodhashcode());
+                      stringBuilder.append("\n");
+                      List<MethodInfoses.ParagramesInfoes> paragrameinfoList = methodinfo.getParagrameinfoList();
+      //            首先通过
+                      for (MethodInfoses.ParagramesInfoes paragramesInfo : paragrameinfoList) {
+                          stringBuilder.append(paragramesInfo.getPtn().getParagrameName());
+                          stringBuilder.append("\n");
+                          stringBuilder.append(paragramesInfo.getPtn().getParagrameType());
+                          stringBuilder.append("\n");
+                      }
+                      //获取函数执行返回的值
+                      Object object = handler.getObject(response.getResponsevalue());
+                      if (object != null) {
+                          Class<?> aClass = object.getClass();
+                          String typeName = aClass.getTypeName();
+                          Object o = handler.getreturnType(typeName, object);
+                          if (o == null) {//不是八大基本类型和String类型
+                              Field[] declaredFields = aClass.getDeclaredFields();
+                              for (Field declaredField : declaredFields) {
+                                  //通过反射获取值
+                                  declaredField.setAccessible(true);
+                                  try {
+                                      stringBuilder.append(declaredField.getName() + " " + declaredField.get(object));
+                                  } catch (IllegalAccessException e) {
+                                      e.printStackTrace();
+                                  }
+                                  stringBuilder.append("\n");
                               }
-                              //装入map中
-                              method_Object.put(declaredMethod.getName(), build);
+                          } else {//直接输出结果
+                              System.out.println(object);
                           }
                       }
-                  }
-                  for(Map.Entry<String , MethodInfos.MethodInfo> map:method_Object.entrySet()){
-                      methodInfoMap.put(map.getKey(),map.getValue());
+                      System.out.println(stringBuilder.toString());
                   }
               }
           }
-          通过上面的方法将函数的函数名、返回值、参数信息等等都装载到protobuf类中也就是MethodInfo中。
-          在将其放入最后的methodInfoMap中，以供其他的函数调用。
-         
-          下面是server的handler的处理程序：
-              public class ServiceHandler extends SimpleChannelInboundHandler<MethodInfos.MyMessage> {
-                  //获取具体可以被远程调用的方法
-                  private Map<String, MethodInfos.MethodInfo> map = AbstractBean.methodInfoMap;
-                  //获取ioc容器
-                  private Map<String,Object> iocmap = AbstractBean.iocmap;
-                  //获取单例的线程池
-                  private ExecutorService executorService = ThreadExcutors.INSTANCE.getExecutor();
-                  @Override
-                  public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
-                      System.out.println("////////////");
-                      //这里需要需要调用的方法传输回去
-                      for(Map.Entry<String, MethodInfos.MethodInfo> maps:map.entrySet()) {
-                          MethodInfos.MyMessage message = MethodInfos.MyMessage.newBuilder().setMethodinfo(maps.getValue()).build();
-                          Channel channel = ctx.channel();
+          public static void main(String[] args) {
+      //        Set<MethodInfos.MethodInfo> set = new HashSet<>();
+              new RPC_NettyClient();
+          }
+      }
+            
+     服务端的handler的代码：
+     public class ServiceHandler extends SimpleChannelInboundHandler< MethodInfoses.MyMessages> {
+          //获取具体可以被远程调用的方法
+          private Map<String, MethodInfoses.MethodInfoes> map = AbstractBean.methodInfoMap;
+          //获取ioc容器
+          private Map<String,Object> iocmap = AbstractBean.iocmap;
+          //获取单例的线程池
+          private ExecutorService executorService = ThreadExcutors.INSTANCE.getExecutor();
+          @Override
+          public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+              //这里需要需要调用的方法传输回去
+              for(Map.Entry<String, MethodInfoses.MethodInfoes> maps:map.entrySet()) {
+                  MethodInfoses.MyMessages message = MethodInfoses.MyMessages.newBuilder().setMethodinfo(maps.getValue()).build();
+                  Channel channel = ctx.channel();
+                  channel.writeAndFlush(message);
+              }
+          }
+
+          @Override
+          protected void channelRead0(ChannelHandlerContext channelHandlerContext, MethodInfoses.MyMessages myMessage) throws Exception {
+              //在这里处理具体的事务
+              //使用线程池来解决netty 的channelread0的单线程问题
+              MethodInfoses.MethodInfoes methodinfo = myMessage.getMethodinfo();
+              executorService.execute(new tack(methodinfo,channelHandlerContext.channel()));
+          }
+
+          class tack implements Runnable{
+              MethodInfoses.MethodInfoes methodInfo;
+              Channel channel;
+              public tack(MethodInfoses.MethodInfoes methodInfo,Channel channel){
+                  this.methodInfo = methodInfo;
+                  this.channel = channel;
+              }
+
+              @Override
+              public void  run() {
+                  //查找具体的函数和具体的对象实例
+                  //查找对象实例
+                  String classname = methodInfo.getClassname();
+                  Object o = iocmap.get(classname);
+                  Class<?> aClass = o.getClass();
+                  Method[] declaredMethods = aClass.getDeclaredMethods();
+                  Method method = null;
+                  //对比对象中的所有的方法，取出返回类型、方法名、参数类型，参数名字、全都与
+                  //methodinfo中一样的方法。
+                  for (Method declaredMethod : declaredMethods) {
+                      //只需要对比hashcode的值就可以了
+                      if(declaredMethod.hashCode() == methodInfo.getMethodhashcode()){
+                          //如果hashcode相同空，那么就表示是同一个，虽然说这样有可能会有冲突的出现，但是目前
+                          //就这样了。后续再去修改
+                          method = declaredMethod;
+                          break;
+                      }
+                  }
+                  Handler handler = new Handler();
+                  if(method != null){
+                      //获取参数，获取传递过来的参数值
+                      int count = methodInfo.getParagrameinfoCount();
+                      Object[] objects = new Object[count];
+                      for(int i=0;i<count;i++){
+                          //这里需要做一个操作，就是将byte【】类型的转成object的。
+                          MethodInfoses.ParagramesInfoes paragrameinfo = methodInfo.getParagrameinfo(i);
+                          ByteString byteString = paragrameinfo.getParagramevalue();
+                          Object object = handler.getObject(byteString);
+                          objects[i] =object;
+                      }
+                      try {
+                          //执行方法
+                          Object object = method.invoke(o,objects);
+                          //首先将结果序列化
+                          MethodInfoses.Responses serializableResponse = handler.getSerializableResponse(object);
+                          //将返回值传递给response,在封装成mymessage
+                          MethodInfoses.MyMessages message = MethodInfoses.MyMessages.newBuilder()
+                                  .setResponse(serializableResponse).build();
+                          //将mymessage传递给远程。
                           channel.writeAndFlush(message);
-                      }
-                  }
-
-                  @Override
-                  protected void channelRead0(ChannelHandlerContext channelHandlerContext, MethodInfos.MyMessage myMessage) throws Exception {
-                      //在这里处理具体的事务
-                      //使用线程池来解决netty 的channelread0的单线程问题
-                      MethodInfos.MethodInfo methodinfo = myMessage.getMethodinfo();
-                      executorService.execute(new tack(methodinfo,channelHandlerContext.channel()));
-                  }
-
-                  class tack implements Runnable{
-                      MethodInfos.MethodInfo methodInfo;
-                      Channel channel;
-                      public tack(MethodInfos.MethodInfo methodInfo,Channel channel){
-                          this.methodInfo = methodInfo;
-                          this.channel = channel;
-                      }
-
-                      @Override
-                      public void  run() {
-                          //查找具体的函数和具体的对象实例
-                          //查找对象实例
-                          String classname = methodInfo.getClassname();
-                          Object o = iocmap.get(classname);
-                          Class<?> aClass = o.getClass();
-                          Method[] declaredMethods = aClass.getDeclaredMethods();
-                          Method method = null;
-                          //对比对象中的所有的方法，取出返回类型、方法名、参数类型，参数名字、全都与
-                          //methodinfo中一样的方法。
-                          //其实这里可以适应方法的hashcode来作为key，具体的method作为value，返回给client的可以是这个
-                          //调用的时候直接返回hashcode、和具体的参数的值。
-                          //这样会简便一点
-                          //这个就作为后续的改进吧
-                          for (Method declaredMethod : declaredMethods) {
-                              //对比方法名
-                              if(declaredMethod.getName().equals(methodInfo.getMethodname())) {
-                                  //对比返回值类型
-                                  String string = declaredMethod.getReturnType().toString();
-                                  if (string.equals(methodInfo.getMethodReturnType())) {
-                                      Parameter[] parameters = declaredMethod.getParameters();
-                                      //对比参数长度
-                                      if (methodInfo.getParagrameinfoCount() == parameters.length) {
-                                          int flag = 0;
-                                          for (int i = 0; i < parameters.length; i++) {
-                                              MethodInfos.ParagramesInfo paragrameinfo = methodInfo.getParagrameinfo(i);
-                                              //对比参数类型，和参数名字。
-                                              if (!parameters[i].getName().equals(paragrameinfo.getParagrameName()) ||
-                                                      !parameters[i].getType().toString().equals(paragrameinfo.getParagrameType())) {
-                                                  flag = 1;
-                                              }
-                                          }
-                                          if (flag == 0) {
-                                              method = declaredMethod;
-                                              break;
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-                          if(method != null){
-                              //获取参数，获取传递过来的参数值
-                              int count = methodInfo.getParagrameinfoCount();
-                              Object[] objects = new Object[count];
-                              for(int i=0;i<count;i++){
-                                  objects[i] = methodInfo.getParagrameinfo(i);
-                              }
-                              try {
-                                  //执行方法
-                                  Object object = method.invoke(o,objects);
-                                  //将返回值传递给response,在封装成mymessage
-                                  MethodInfos.Response response = MethodInfos.Response.newBuilder().setValue(object.toString()).build();
-                                  MethodInfos.MyMessage message = MethodInfos.MyMessage.newBuilder()
-                                                                  .setResponse(response).build();
-                                  //将mymessage传递给远程。
-                                  channel.writeAndFlush(message);
-                              } catch (IllegalAccessException | InvocationTargetException e) {
-                                  e.printStackTrace();
-                              }
-                          }
+                      } catch (IllegalAccessException | InvocationTargetException e) {
+                          e.printStackTrace();
                       }
                   }
               }
-          
-          
-          客户端程序：
-            
-            public class RPC_NettyClient {
-                static Set<MethodInfos.MethodInfo> set = new HashSet<>();
-                public static void main(String[] args) {
-            //        Set<MethodInfos.MethodInfo> set = new HashSet<>();
-                    EventLoopGroup boss = new NioEventLoopGroup();
-                    Bootstrap bootstrap = new Bootstrap();
-                    bootstrap.group(boss).channel(NioSocketChannel.class).handler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        protected void initChannel(SocketChannel socketChannel) throws Exception {
-                            ChannelPipeline pipeline = socketChannel.pipeline();
-                            //protobuf解码
-                            pipeline.addLast(new ProtobufDecoder(MethodInfos.MyMessage.getDefaultInstance()));
-                            //protobuf编码
-                            pipeline.addLast(new ProtobufEncoder());
-                            pipeline.addLast(new ProtobufVarint32FrameDecoder());
-                            pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());
-
-                            pipeline.addLast(new SimpleChannelInboundHandler<MethodInfos.MyMessage>() {
-                                @Override
-                                protected void channelRead0(ChannelHandlerContext channelHandlerContext, MethodInfos.MyMessage myMessage) throws Exception {
-            //                        Channel channel = channelHandlerContext.channel();
-                                    MethodInfos.MethodInfo methodinfo = myMessage.getMethodinfo();
-                                    set.add(methodinfo);
-                                    MethodInfos.Response response = myMessage.getResponse();
-                                    StringBuilder stringBuilder = new StringBuilder();
-                                    stringBuilder.append(methodinfo.getClassname());
-                                    stringBuilder.append(methodinfo.getMethodname());
-                                    List<MethodInfos.ParagramesInfo> paragrameinfoList = methodinfo.getParagrameinfoList();
-                                    for (MethodInfos.ParagramesInfo paragramesInfo : paragrameinfoList) {
-                                        stringBuilder.append(paragramesInfo.getParagrameName());
-                                        stringBuilder.append(paragramesInfo.getParagrameType());
-                                        stringBuilder.append(paragramesInfo.getParagramevalue());
-                                    }
-                                    stringBuilder.append(response.getValue());
-                                    System.out.println(stringBuilder.toString());
-                                }
-                            });
-                        }
-                    });
-                    try {
-                        ChannelFuture channelFuture = bootstrap.connect("127.0.0.1", 8899).sync();
-                        Channel channel = channelFuture.channel();
-                        //简单的测试一下，看看可不可以有返回值。
-            //            MethodInfos.MethodInfo methodInfo = MethodInfos.MethodInfo.newBuilder().setClassname("TestMethod")
-            //                    .setMethodname("test").setMethodReturnType("int").build();
-
-                        test test = new test(channel);
-                        test.start();
-                        channel.closeFuture().sync();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }finally {
-                        boss.shutdownGracefully();
-                    }
-                }
-                static class test extends Thread{
-                    Channel channel;
-                    public test(Channel channel){
-                        this.channel = channel;
-                    }
-                    @Override
-                    public void run() {
-                        boolean kk = true;
-                        while(kk) {
-                            Iterator<MethodInfos.MethodInfo> iterator = set.iterator();
-                            if (set.size()>0) {
-                                while (iterator.hasNext()) {
-                                    MethodInfos.MethodInfo next = iterator.next();
-                                    if (next != null) {
-                                        MethodInfos.MyMessage message = MethodInfos.MyMessage.newBuilder().setMethodinfo(next).build();
-                                        channel.writeAndFlush(message);
-                                        kk = false;
-                                    }
-                                }
-                            }else{
-                                try {
-                                    Thread.sleep(1);
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-    
-    
-    效果：
-            ![https://github.com/mcl973/SimpleNettyRPC/blob/master/%E5%AE%A2%E6%88%B7%E7%AB%AFshow.png]
-            
-            ![https://github.com/mcl973/SimpleNettyRPC/blob/master/%E6%9C%8D%E5%8A%A1%E7%AB%AFshw.png]
-            
-        
+          }
+      }
+      
+      效果：
+      
