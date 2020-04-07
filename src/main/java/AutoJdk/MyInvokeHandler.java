@@ -40,11 +40,6 @@ public class MyInvokeHandler extends MyHandler implements InvocationHandler {
                 return fef.getafter(method);
             } else if (method.isAnnotationPresent(Before.class)) {
                 return fef.getbefore(method);
-            }else{
-                Annotation exterFunctionAnnotation = fef.getExterFunctionAnnotation(method);
-                if (exterFunctionAnnotation == null)
-                    return null;
-                return (BaseInterface) fef.getEnhanceObject(fef.getAnnotationValue(exterFunctionAnnotation));
             }
         }
         return null;

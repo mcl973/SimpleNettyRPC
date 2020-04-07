@@ -78,9 +78,15 @@ public class HandleAopBean extends AbstractHandleAopBean {
                 //注入必须要在代理前，代理后的类不会有代理前的属性
                 MyInvokeHandler myInvokeHandler = new MyInvokeHandler(value);
                 Object newInstance = JAutoAop.createNewInstance(value, myInvokeHandler);
+                Class<?> aClass1 = newInstance.getClass();
                 map.setValue(newInstance);
                 for (Method method : list) {
-                    getmethodinfo(map.getKey(),method,map2);
+                    try {
+                        Method declaredMethod = aClass1.getDeclaredMethod(method.getName(), method.getParameterTypes());
+                        getmethodinfo(map.getKey(),declaredMethod,map2);
+                    } catch (NoSuchMethodException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }

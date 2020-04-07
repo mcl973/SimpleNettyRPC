@@ -42,12 +42,7 @@ public class ServiceHandler extends SimpleChannelInboundHandler< MethodInfoses.M
     private ExecutorService executorService = ThreadExcutors.INSTANCE.getExecutor();
     @Override
     public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
-        //这里需要需要调用的方法传输回去
-        for(Map.Entry<String, MethodInfoses.MethodInfoes> maps:map.entrySet()) {
-            MethodInfoses.MyMessages message = MethodInfoses.MyMessages.newBuilder().setMethodinfo(maps.getValue()).build();
-            Channel channel = ctx.channel();
-            channel.writeAndFlush(message);
-        }
+        executorService.execute(new sendRPCMethod(ctx.channel()));
     }
 
     @Override
@@ -109,6 +104,26 @@ public class ServiceHandler extends SimpleChannelInboundHandler< MethodInfoses.M
                     //将mymessage传递给远程。
                     channel.writeAndFlush(message);
                 } catch (IllegalAccessException | InvocationTargetException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+    class sendRPCMethod extends Thread{
+        Channel channel;
+        public sendRPCMethod(Channel channel){
+            this.channel = channel;
+        }
+
+        @Override
+        public void run() {
+            //这里需要需要调用的方法传输回去
+            for(Map.Entry<String, MethodInfoses.MethodInfoes> maps:map.entrySet()) {
+                MethodInfoses.MyMessages message = MethodInfoses.MyMessages.newBuilder().setMethodinfo(maps.getValue()).build();
+                channel.writeAndFlush(message);
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
