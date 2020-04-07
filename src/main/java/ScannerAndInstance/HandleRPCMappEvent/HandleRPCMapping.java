@@ -10,7 +10,9 @@
 package ScannerAndInstance.HandleRPCMappEvent;
 
 import Annotation_Collection.MethodRpc.MethodRPC;
-import MethodMessage.MethodInfoses;
+import MethodMessage.MethodInfos;
+import ScannerAndInstance.Instance.JiexiAnnotation.JieXiMethodRPC;
+import ScannerAndInstance.Instance.JiexiAnnotation.JieXiRouteMapping;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -32,7 +34,7 @@ public class HandleRPCMapping extends AbstractHandleRPCmapping {
         //如Dao、DaoSql一个map，Service一个map，Controller和路径映射一个map
         //最后将这些都放入一个大的map里，或是不放置。
         //但是这样的话就不能够在注入的时候区分哪些东西在哪里
-        Map<String, MethodInfoses.MethodInfoes> method_Object = new HashMap<>();
+        Map<String, MethodInfos.MethodInfo> method_Object = new HashMap<>();
 
         for(Map.Entry<String ,Object> map:iocmap.entrySet()){
             Object value = map.getValue();
@@ -40,35 +42,44 @@ public class HandleRPCMapping extends AbstractHandleRPCmapping {
             Method[] declaredMethods = aClass.getDeclaredMethods();
             for (Method declaredMethod : declaredMethods) {
                 if (declaredMethod.isAnnotationPresent(MethodRPC.class)) {
-                    getmethodinfo(map.getKey(),declaredMethod,method_Object);
+                    //将这个函数的信息封装成protobuf类型的格式
+                    JieXiMethodRPC jieXiMethodRPC = new JieXiMethodRPC();
+                    //先获取方法上的名字
+                    String s = jieXiMethodRPC.JiexiAnnotation(declaredMethod);
+                    MethodInfos.ParagramesInfo.Builder builder = MethodInfos.ParagramesInfo.newBuilder();
+                    Parameter[] parameters = declaredMethod.getParameters();
+                    MethodInfos.ParagramesInfo build1 = null;
+                    if(parameters.length>0) {
+                        //获取参数
+                        for (Parameter parameter : parameters) {
+                            builder.setParagrameName(parameter.getName());
+                            builder.setParagrameType(parameter.getType().toString());
+                        }
+                        build1 = builder.build();
+                        //构建methidonfo
+                    }
+                    MethodInfos.MethodInfo build = null;
+                    if(build1!=null) {
+                        build = MethodInfos.MethodInfo.newBuilder()
+                                //到时可以使用这个快速的调取iocmap中具体的对象实例
+                                .setClassname(map.getKey())
+                                .setMethodname(s)
+                                .setMethodReturnType(declaredMethod.getReturnType().toString())
+                                .addParagrameinfo(build1).build();
+                    }else{
+                        build = MethodInfos.MethodInfo.newBuilder()
+                                //到时可以使用这个快速的调取iocmap中具体的对象实例
+                                .setClassname(map.getKey())
+                                .setMethodname(s)
+                                .setMethodReturnType(declaredMethod.getReturnType().toString()).build();
+                    }
+                    //装入map中
+                    method_Object.put(declaredMethod.getName(), build);
                 }
             }
         }
-        for(Map.Entry<String , MethodInfoses.MethodInfoes> map:method_Object.entrySet()){
+        for(Map.Entry<String , MethodInfos.MethodInfo> map:method_Object.entrySet()){
             methodInfoMap.put(map.getKey(),map.getValue());
         }
-    }
-    public void getmethodinfo(String classname, Method declaredMethod, Map<String, MethodInfoses.MethodInfoes> method_Object){
-        Parameter[] parameters = declaredMethod.getParameters();
-        /*
-            1.获取classname
-            2.获取method的hashcode
-            3.获取参数名和类型
-         */
-        //获取classname和method的hashcode
-        MethodInfoses.MethodInfoes.Builder builder = MethodInfoses.MethodInfoes.newBuilder()
-                .setClassname(classname)
-                .setMethodhashcode(declaredMethod.hashCode());
-        //提恩建每一个参数的信息：参数名、参数类型
-        for (Parameter parameter : parameters) {
-            MethodInfoses.paragrameTypeAndName paragrameTypeAndName = MethodInfoses.paragrameTypeAndName
-                    .newBuilder().setParagrameName(parameter.getName())
-                    .setParagrameType(parameter.getType().toString()).build();
-            MethodInfoses.ParagramesInfoes paragramesInfoes = MethodInfoses.ParagramesInfoes.newBuilder()
-                    .setPtn(paragrameTypeAndName).build();
-            builder.addParagrameinfo(paragramesInfoes);
-        }
-        //        //装入map中
-        method_Object.put(declaredMethod.getName(), builder.build());
     }
 }

@@ -1,5 +1,58 @@
 # SimpleNettyRPC
-    一个基于netty和我之前的写的后台框架中的ioc、di、aop以及后添加的rpc方法扫描模块
+      1.在netty的server端，当client刚注册时就将本地的所有的rpc方法发送给client。
+      2.client再根据自己需要的来调用具体的函数。
+      3.在处理中使用了enum创建的单例的线程池来处理具体的函数调用事件。
+      4.事件处理完成后直接调用对应的channel将数据返回给client。
+      5.使用jdk的动态代理实现了rpc调用的线程安全性，代码如下：
+            @Compolent("ExampleImpl")
+            public class ExampleImpl implements Example {
+
+                @MethodRPC("test")
+                @Before("MyService.AopMethods.Before.BeforAop3")
+                @Override
+                public int test() {
+                    System.out.println("this is test");
+                    return 10;
+                }
+            }
+            public class BeforAop3 implements BaseInterface {
+                @Override
+                public Object Excute(Method method, Object object, Object[] objects) {
+                    return synchronizedMethod(method,object,objects);
+                }
+                public synchronized Object synchronizedMethod(Method method, Object object, Object[] objects){
+                    try {
+                        return method.invoke(object,objects);
+                    } catch (IllegalAccessException | InvocationTargetException e) {
+                        return null;
+                    }
+                }
+            }
+            运行时期通过原本的匹配方式，会执行到BeforAop3这个函数上，可以看见只是在骑上封装了一个线程安全的函数，使用synchronized修饰。
+      
+      其中线程池是有一个枚举类型写成的单例获得的：
+      public enum ThreadExcutors {
+            INSTANCE(5,5,5,5);
+            private ExecutorService executorService;
+            ThreadExcutors(int coresize,int maxsize,int arrayblockingqueuesize,int waitTime){
+                executorService = new ThreadPoolExecutor(coresize,maxsize,waitTime, TimeUnit.SECONDS,
+                        new ArrayBlockingQueue<Runnable>(arrayblockingqueuesize),
+                        Executors.defaultThreadFactory(),
+                        new ThreadPoolExecutor.AbortPolicy());
+            }
+            public ExecutorService getExecutor(){
+                return executorService;
+            }
+        }
+        所以他是安全的。
+        
+        貌似函数的处理还没有对于线程安全的处理。
+        后续会针对方法做一个aop，正对于aop来处理这个事件。
+      **由于对protobuf还处于一个比较简陋的了解，还不知道如何处理Object对象和Object[]对象，但是我觉的是不是可以将Object和Object[]序列化，然后装载到
+      protobuf中，这样就可以解决参数中含有非基本变量和String类型的情况。
+      ***所以目前只能处理返回时 是基本类型或string，参数是基本类型或是String。
+      
+     一个基于netty和我之前的写的后台框架中的ioc、di、aop以及后添加的rpc方法扫描模块
       https://github.com/mcl973/-web-Dao-Service-Controller-  这个就是之前的简单的后台框架
     
     首先创建了一个protobuf：
@@ -39,8 +92,8 @@
              string value = 1;
         }
     使用protoc生成java代码：
-        protoc --proto_path=E:\java\Netty_RPC\src\main\java\protobuf --java_out=E:\java\Netty_RPC\src\main\java\ E:\java\Ne
-tty_RPC\src\main\java\protobuf\protobuf_Request
+        protoc --proto_path=E:\java\Netty_RPC\src\main\java\protobuf --java_out=E:\java\Netty_RPC\src\main\java\ E:\java\Netty_RPC\src\main\java\protobuf\protobuf_Request
+#
      ioc、aop、di的部分我就不讲了，着重的讲一下关于rpc函数的扫描：
      首先使用自定义注解@Compolent("ExampleImpl")，像这样来标注一个类，记得要传递类名
      其次使用自定义注解@MethodRPC("test")，来修饰要被远程调用的函数，记得要传递方法名
@@ -99,12 +152,7 @@ tty_RPC\src\main\java\protobuf\protobuf_Request
           }
           通过上面的方法将函数的函数名、返回值、参数信息等等都装载到protobuf类中也就是MethodInfo中。
           在将其放入最后的methodInfoMap中，以供其他的函数调用。
-          
-          
-          1.在netty的server端，当client刚注册时就将本地的所有的rpc方法发送给client。
-          2.client再根据自己需要的来调用具体的函数。
-          3.在处理中使用了enum创建的单例的线程池来处理具体的函数调用事件。
-          4.事件处理完成后直接调用对应的channel将数据返回给client。
+         
           下面是server的handler的处理程序：
               public class ServiceHandler extends SimpleChannelInboundHandler<MethodInfos.MyMessage> {
                   //获取具体可以被远程调用的方法
@@ -129,7 +177,7 @@ tty_RPC\src\main\java\protobuf\protobuf_Request
                       //在这里处理具体的事务
                       //使用线程池来解决netty 的channelread0的单线程问题
                       MethodInfos.MethodInfo methodinfo = myMessage.getMethodinfo();
-                      Future<?> submit = executorService.submit(new tack(methodinfo,channelHandlerContext.channel()));
+                      executorService.execute(new tack(methodinfo,channelHandlerContext.channel()));
                   }
 
                   class tack implements Runnable{
@@ -296,4 +344,8 @@ tty_RPC\src\main\java\protobuf\protobuf_Request
     
     
     效果：
+            ![https://github.com/mcl973/SimpleNettyRPC/blob/master/%E5%AE%A2%E6%88%B7%E7%AB%AFshow.png]
+            
+            ![https://github.com/mcl973/SimpleNettyRPC/blob/master/%E6%9C%8D%E5%8A%A1%E7%AB%AFshw.png]
+            
         

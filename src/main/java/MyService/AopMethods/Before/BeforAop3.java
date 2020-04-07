@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
  * Copyright (C), 2015-2020, XXX有限公司
  * FileName: BeforAop3
@@ -22,6 +23,8 @@ import java.lang.reflect.Method;
  * @create 2020/04/03
  * @since 1.0.0
  */
+=======
+>>>>>>> origin/master
 public class BeforAop3 implements BaseInterface {
     @Override
     public Object Excute(Method method, Object object, Object[] objects) {
