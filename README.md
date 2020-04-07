@@ -195,6 +195,85 @@
   
     使用protoc生成java代码：
         protoc --proto_path=E:\java\Netty_RPC\src\main\java\protobuf --java_out=E:\java\Netty_RPC\src\main\java\ E:\java\Netty_RPC\src\main\java\protobuf\protobuf_Requests
+     handler的代码：（其实是序列化和反序列化的过程）
+      public class Handler {
+          public MethodInfoses.ParagramesInfoes getSerializableParagrame(Object object){
+              ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+              ObjectOutputStream objectOutputStream = null;
+              try {
+                  objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+                  objectOutputStream.writeObject(object);
+              } catch (IOException e) {
+                  e.printStackTrace();
+              }
+              byte[] bytes = byteArrayOutputStream.toByteArray();
+              ByteString byteString = ByteString.copyFrom(bytes);
+              return MethodInfoses.ParagramesInfoes.newBuilder().setParagramevalue(byteString).build();
+          }
+
+          public MethodInfoses.Responses getSerializableResponse(Object object){
+              ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();//以字节数组的输出流作为ObjectOutputStream的参数
+              ObjectOutputStream objectOutputStream = null;
+              try {
+                  objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+                  objectOutputStream.writeObject(object);//将数据写入ByteArrayOutputStream
+              } catch (IOException e) {
+                  e.printStackTrace();
+              }
+              byte[] bytes = byteArrayOutputStream.toByteArray();//转化为字节数组
+              ByteString byteString = ByteString.copyFrom(bytes);
+              return MethodInfoses.Responses.newBuilder().setResponsevalue(byteString).build();
+          }
+
+          public Object getObject(ByteString byteString){//反序列化
+              Object object = null;
+              if (byteString.size() != 0) {
+                  byte[] bytes = byteString.toByteArray();
+                  ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);//读取数据
+                  try {
+                      ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);//作为参数传入
+                      object = objectInputStream.readObject();//获取object
+                  } catch (IOException | ClassNotFoundException e) {
+                      e.printStackTrace();
+                  }
+              }
+              return object;
+          }
+          /*
+              import java.lang.Integer;
+              import java.lang.Double;
+              import java.lang.Float;
+              import java.lang.Long;
+              import java.lang.Boolean;
+              import java.lang.Byte;
+              import java.lang.Character;
+              import java.lang.Short;
+              import java.lang.String;
+           */
+          public Object getreturnType(String typename,Object value){//判断是否是基本类型和String
+              switch (typename){
+                  case "java.lang.Integer":
+                      return (int)value;
+                  case "import java.lang.Double":
+                      return (double)value;
+                  case "java.lang.Float":
+                      return (float)value;
+                  case "java.lang.Long":
+                      return (long)value;
+                  case "java.lang.Boolean":
+                      return (boolean)value;
+                  case "java.lang.Byte":
+                      return (byte)value;
+                  case "java.lang.Character":
+                      return (char)value;
+                  case "java.lang.Short":
+                      return (short)value;
+                  case "java.lang.String":
+                      return (String)value;
+                  default:return null;
+              }
+          }
+      } 
      贴上客户端的代码：
       public class RPC_NettyClient {
           static ConcurrentHashMap<MethodInfoses.MethodInfoes,Object> set = new ConcurrentHashMap<>();
@@ -245,7 +324,17 @@
               @Override
               public void run() {
                   boolean kk = true;
-
+                       //一下代码，可以改成列表形式提供给用户
+                       /*以下代码可以封装成一个函数，函数的参数中包含一个函数的hashcode和参数列表，函数中通过hashcode拿取具体的函数
+                         然后按照再将其封装成MethodInfoe形式。
+                          如：
+                          public void getresult(int hashcode,Object[] obejct,Channel channel){
+                              MethodInfoses.MethodInfoes mehthod = map.get(hashcode);
+                              MethodInfoses.MethodInfoes excute = excute(mehthod, object);
+                              MethodInfoses.MyMessages build = MethodInfoses.MyMessages.newBuilder().setMethodinfo(excute).build();
+                              channel.writeAndFlush(build);
+                          }
+                       */
                   while(kk) {
                       for(Map.Entry<MethodInfoses.MethodInfoes,Object> nexts:set.entrySet()){
                               MethodInfoses.MethodInfoes next = nexts.getKey();
@@ -353,12 +442,7 @@
           private ExecutorService executorService = ThreadExcutors.INSTANCE.getExecutor();
           @Override
           public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
-              //这里需要需要调用的方法传输回去
-              for(Map.Entry<String, MethodInfoses.MethodInfoes> maps:map.entrySet()) {
-                  MethodInfoses.MyMessages message = MethodInfoses.MyMessages.newBuilder().setMethodinfo(maps.getValue()).build();
-                  Channel channel = ctx.channel();
-                  channel.writeAndFlush(message);
-              }
+              executorService.execute(new sendRPCMethod(ctx.channel()));
           }
 
           @Override
@@ -425,7 +509,135 @@
                   }
               }
           }
+          class sendRPCMethod extends Thread{
+              Channel channel;
+              public sendRPCMethod(Channel channel){
+                  this.channel = channel;
+              }
+
+              @Override
+              public void run() {
+                  //这里需要需要调用的方法传输回去
+                  for(Map.Entry<String, MethodInfoses.MethodInfoes> maps:map.entrySet()) {
+                      MethodInfoses.MyMessages message = MethodInfoses.MyMessages.newBuilder().setMethodinfo(maps.getValue()).build();
+                      channel.writeAndFlush(message);
+                      try {
+                          //这个算是一个bug，如果不加这一段的睡眠会是睡眠的时间不够那么就会导致client端出现错误
+                          //可能的额情况是第二个函数拥有第一个函数的参数
+                          //在client端使用锁也解决不了问题，最终只能归结为串扰，即认为两次数据发生了冲突了，因为在底层都是比特流
+                          //在客户端解析出现错误，如果保留一段时间在发送就不会出现这样的问题。
+                          //很奇怪的现象，如果有读者知道的可以修改下，忽视通知在下：邮箱：979377991@qq.com
+                          Thread.sleep(100);
+                      } catch (InterruptedException e) {
+                          e.printStackTrace();
+                      }
+                  }
+              }
+          }
       }
       
-      效果：
+      效果：客户端。
+            /////////
+            //////////////
+            /////////   第一个函数的信息
+            ExampleImpl
+            1314143599
+            arg0
+            class java.lang.String
+            arg1
+            int
+
+            //////////////  第二个函数的信息
+            ExampleImpl
+            765298446
+
+            /////////
+            //////////////  调用第二个函数的结果返回
+            1000
+
+            0
+            
+    第二个函数：
+          @MethodRPC("getresult")  //被标识，在ioc阶段会将其独立的创建出来，放入单独的rpcMap中，以供后续程序的使用
+          @Override
+          public long getresult() {
+              return 1000L;
+          }
+    
+     执行第一个函数显示的是：
+      /////////
+      /////////
+      //////////////
+      ExampleImpl
+      1314143599
+      arg0
+      class java.lang.String
+      arg1
+      int
+
+      //////////////
+      ExampleImpl
+      765298446
+
+      /////////
+      //////////////返回的数据
+
+      0
+      age 26    
+      name mcl
+      
+      第一个函数的代码：
+          @MethodRPC("test")
+          @Before("MyService.AopMethods.Before.BeforAop3")   //这个方法需要被增强
+          @Override
+          public test test(String name,int age) {
+              System.out.println("this is test");
+              System.out.println(name+"   "+age);
+              test t = new test("mcl",26);
+              return t;
+          }
+          //增强的方法，其实就是加了层synchronized，保证其其安全性
+          public class BeforAop3 implements BaseInterface {
+                @Override
+                public Object Excute(Method method, Object object, Object[] objects) {
+                    return synchronizedMethod(method,object,objects);
+                }
+                public synchronized Object synchronizedMethod(Method method, Object object, Object[] objects){
+                    try {
+                        return method.invoke(object,objects);
+                    } catch (IllegalAccessException | InvocationTargetException e) {
+                        return null;
+                    }
+                }
+            }
+            //返回数据的类
+            public class test implements Serializable {
+                int age;
+                String name;
+                public test(String name,int age){
+                    this.name = name;
+                    this.age = age;
+                }
+                public int getAge() {
+                    return age;
+                }
+
+                public void setAge(int age) {
+                    this.age = age;
+                }
+
+                public String getName() {
+                    return name;
+                }
+
+                public void setName(String name) {
+                    this.name = name;
+                }
+            }
+            
+
+   
+      
+      
+      
       
